@@ -47,25 +47,87 @@ Napi::Value Binomial(const Napi::CallbackInfo& info) {
     // set up dates
     //
 
-    // parse data param
-    std::string expireDate = info[0].As<Napi::String>().Utf8Value();
+    // eval date
+    std::string evalDateParam = info[0].As<Napi::String>().Utf8Value();
     std::vector<std::string> result;
-    boost::split(result, expireDate, boost::is_any_of("/"));
+    boost::split(result, evalDateParam, boost::is_any_of("/"));
 
-    int month = std::stoi(result[0]);
-    int day = std::stoi(result[1]);
-    int year = std::stoi(result[2]);
+    int evalMonth = std::stoi(result[0]);
+    int evalDay = std::stoi(result[1]);
+    int evalYear = std::stoi(result[2]);
 
-    // set up Calendar, dates
+    // settlement date
+    std::string settlementDateParam = info[1].As<Napi::String>().Utf8Value();
+    boost::split(result, settlementDateParam, boost::is_any_of("/"));
+
+    int settlementMonth = std::stoi(result[0]);
+    int settlementDay = std::stoi(result[1]);
+    int settlementYear = std::stoi(result[2]);
+
+    // expire date
+    std::string expirationDateParam = info[2].As<Napi::String>().Utf8Value();
+    boost::split(result, expirationDateParam, boost::is_any_of("/"));
+
+    int expirationMonth = std::stoi(result[0]);
+    int expirationDay = std::stoi(result[1]);
+    int expirationYear = std::stoi(result[2]);
+
+    Date evaluationDate(evalDay, (Month)evalMonth, evalYear);
+    Date settlementDate(settlementDay, (Month)settlementMonth, settlementYear); // earliest can be excised
+    Date expirationDate(expirationDay, (Month)expirationMonth, expirationYear);
+
+    std::cout << "Evaluation Date: " << evaluationDate << "\n";
+    std::cout << "Settlement Date: " << settlementDate << "\n";
+    std::cout << "Expiration Date: " << expirationDate << "\n";
+
     Calendar calendar = TARGET();
-    Date evaluationDate(day, (Month)month, year);
-    Date settlementDate = Date::nextWeekday(evaluationDate, Monday);    // Naive and does not account for holidays
     Settings::instance().evaluationDate() = evaluationDate;
 
-    std::cout << evaluationDate << "\n";
-    std::cout << settlementDate << "\n";
+    // our options
+    //
 
-    return Napi::Number::New(env, 3.14);
+    Option::Type type(Option::Put);
+    Real strike = info[4].As<Napi::Number>().DoubleValue();
+    Real underlying = info[5].As<Napi::Number>().DoubleValue();
+    Volatility volatility = info[6].As<Napi::Number>().DoubleValue();
+    Rate riskFreeRate = info[7].As<Napi::Number>().DoubleValue();
+    Spread dividendYield = info[8].As<Napi::Number>().DoubleValue();
+    DayCounter dayCounter = Actual365Fixed();
+
+    std::cout << "Strike: " << strike << "\n";
+    std::cout << "Underlying: " << underlying << "\n";
+    std::cout << "Volatility: " << volatility << "\n";
+    std::cout << "Risk free rate: " << riskFreeRate << "\n";
+    std::cout << "Dividend yield: " << dividendYield << "\n";
+
+    ext::shared_ptr<Exercise> americanExercise(new AmericanExercise(settlementDate, expirationDate));
+    Handle<Quote> underlyingH(ext::shared_ptr<Quote>(new SimpleQuote(underlying)));
+
+    // bootstrap the yield/dividend/vol curves
+    Handle<YieldTermStructure> flatTermStructure(
+        ext::shared_ptr<YieldTermStructure>(
+            new FlatForward(settlementDate, riskFreeRate, dayCounter)));
+
+    Handle<YieldTermStructure> flatDividendTS(
+        ext::shared_ptr<YieldTermStructure>(
+            new FlatForward(settlementDate, dividendYield, dayCounter)));
+
+    Handle<BlackVolTermStructure> flatVolTS(
+        ext::shared_ptr<BlackVolTermStructure>(
+            new BlackConstantVol(settlementDate, calendar, volatility, dayCounter)));
+
+    ext::shared_ptr<StrikedTypePayoff> payoff(new PlainVanillaPayoff(type, strike));
+    ext::shared_ptr<BlackScholesMertonProcess> bsmProcess(
+             new BlackScholesMertonProcess(underlyingH, flatDividendTS, flatTermStructure, flatVolTS));
+
+	// options
+	VanillaOption americanOption(payoff, americanExercise);
+    Size timeSteps = 801;
+
+    americanOption.setPricingEngine(ext::shared_ptr<PricingEngine>(
+            new BinomialVanillaEngine<JarrowRudd>(bsmProcess,timeSteps)));
+
+    return Napi::Number::New(env, americanOption.NPV());
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
