@@ -1,6 +1,6 @@
 var addon = require('bindings')('node-quantlib.node');
 
-console.log('This should be eight:', addon.binomial(
+console.log('Option price: ', addon.binomial(
     "2/29/2020",    // evaluation date
     "3/2/2020",     // settlement date
     "3/20/2020",    // expiration date
