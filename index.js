@@ -1,8 +1,8 @@
-const express = require('express')
+const express = require('express');
 const quantlib = require('bindings')('node-quantlib.node');
 
-const app = express()
-const port = 8081
+const app = express();
+const port = 8081;
 
 app.get('/optionprice/binomial', function (req, res) {
 
