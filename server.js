@@ -34,28 +34,4 @@ app.get('/optionprice/binomial', function (req, res) {
 
 })
 
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
-
-/*
-console.log('Binomial: ', quantlib.binomial(
-    "2/29/2020",    // evaluation date
-    "3/2/2020",     // settlement date
-    "3/20/2020",    // expiration date
-    "put",          // call/put
-    275,            // strike
-    296.26,         // underlying
-    .4011,          // volatility
-    .0097,          // risk free rate
-    .019));         // dividend
-
-console.log('Monte Carlo: ', quantlib.montecarlo(
-    "2/29/2020",    // evaluation date
-    "3/2/2020",     // settlement date
-    "3/20/2020",    // expiration date
-    "put",          // call/put
-    275,            // strike
-    296.26,         // underlying
-    .4011,          // volatility
-    .0097,          // risk free rate
-    .019));         // dividend
- */
+app.listen(port, () => console.log(`Node-QuantLib app listening on port ${port}!`))
