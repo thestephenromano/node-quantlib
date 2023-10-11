@@ -1,3 +1,3 @@
 # node-quantlib
 
-An HTTP interface to QuantLib derivitive pricing models
+An HTTP interface via Nodejs plugin to QuantLib derivitive pricing models
